@@ -1,10 +1,10 @@
 'use client'
 import Image from "next/image";
 import { useState, useEffect } from "react";  
+import { firestore } from "@/firebase";
 import { Box, Typography, TextField, Stack, Button } from "@mui/material";
+import { query, collection, getDocs, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { styled, createTheme, ThemeProvider } from '@mui/material/styles';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, query, collection, getDocs, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 const darkTheme = createTheme({
   palette: {
@@ -61,45 +61,22 @@ const GradientButton = styled(Button)(({ theme }) => ({
   },
 }));
 
-// Move Firebase initialization inside a function
-function initializeFirebase() {
-  const firebaseConfig = {
-    // Your Firebase configuration object
-  };
-
-  const app = initializeApp(firebaseConfig);
-  return getFirestore(app);
-}
-
 export default function Home() {
   const [inventory, setInventory] = useState([]);
   const [itemName, setItemName] = useState('');
-  const [firestore, setFirestore] = useState(null);
 
-  useEffect(() => {
-    // Initialize Firebase when the component mounts
-    const db = initializeFirebase();
-    setFirestore(db);
-    
-    // Update inventory after Firebase is initialized
-    if (db) {
-      updateInventory(db);
-    }
-  }, []);
-
-  const updateInventory = async (db) => {
-    if (!db) return;
-    const snapshot = query(collection(db, 'inventory'));
+  const updateInventory = async () => {
+    const snapshot = query(collection(firestore, 'inventory'));
     const docs = await getDocs(snapshot);
     const inventoryList = []
     docs.forEach((doc) => {
       inventoryList.push({...doc.data(), name: doc.id})
-    })
-    setInventory(inventoryList);
+  })
+  setInventory(inventoryList);
   }
 
   const removeItem = async (item) => {
-    if (!firestore || !item) return;
+    if (!item) return; // Add this check
     const docRef = doc(collection(firestore, 'inventory'), item);
     const docSnap = await getDoc(docRef);
 
@@ -112,11 +89,11 @@ export default function Home() {
         await setDoc(docRef, {quantity: quantity - 1});
       }
     }
-    await updateInventory(firestore);
+    await updateInventory();
   }
 
   const addItem = async (item) => {
-    if (!firestore || !item) return;
+    if (!item) return; // Add this check
     const docRef = doc(collection(firestore, 'inventory'), item);
     const docSnap = await getDoc(docRef);
 
@@ -127,8 +104,12 @@ export default function Home() {
       else {
         await setDoc(docRef, {quantity: 1});
     }
-    await updateInventory(firestore);
+    await updateInventory();
   }
+
+  useEffect(() => {
+    updateInventory();
+  }, []);
 
   return( 
     <ThemeProvider theme={darkTheme}>
